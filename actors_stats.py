@@ -2,6 +2,7 @@ import oead
 import os
 import pathlib
 import json
+import dictdiffer
 
 indexLetters = ['A-','B-','C-','D-','E-','F-','G-','H-','I-','J-']
 indexNumbers = ['1','2','3','4','5','6','7','8']
@@ -18,8 +19,10 @@ def openPack(filePath):
     sarc = oead.Sarc(data)
     sarc_writer = oead.SarcWriter(endian = oead.Endianness.Big)
     stats = {}
-    if seeName:
+    if seeName and not 'Comparison' in filePath:
         stats['Actor Name'] = filePath[7:].replace('.sbactorpack','')
+    elif seeName:
+        stats['Actor Name'] = filePath[20:].replace('.sbactorpack','')
     #print(stats['Actor Name'])
     for file in sarc.get_files():
         sarc_writer.files[file.name] = file.data.tobytes()
@@ -98,16 +101,52 @@ def basicStats():
     seeAwareness = input('Do you want to see Awareness of the enemies ? y if yes : ') == 'y'
     global seeWeaknesses
     seeWeaknesses = input('Do you want to see Weaknesses of the enemies ? y if yes : ') == 'y'
-    finalList = []
+    finalList = {}
     for filename in os.listdir('Actors'):
         if filename != '.gitkeep':
             onestats = openPack('Actors\\'+filename)
-            finalList.append(onestats)
+            finalList[onestats['Actor Name']] = onestats
     with open('stats.json','w') as f:
         f.write(json.dumps(finalList, indent = 4))
 
+def comparison():
+    global seeHealth
+    seeHealth = input('Do you want to see Health of the enemies ? y if yes : ') == 'y'
+    global seePower
+    seePower = input('Do you want to see Power of the enemies ? y if yes : ') == 'y'
+    global seeAwareness
+    seeAwareness = input('Do you want to see Awareness of the enemies ? y if yes : ') == 'y'
+    global seeWeaknesses
+    seeWeaknesses = input('Do you want to see Weaknesses of the enemies ? y if yes : ') == 'y'
+    finalList1 = {}
+    finalList2 = {}
+    finalList = {}
+    for filename in os.listdir('Comparison\\Actors 1'):
+        if filename != '.gitkeep':
+            onestats1 = openPack('Comparison\\Actors 1\\'+filename)
+            finalList1[onestats1['Actor Name']] = onestats1
+    for filename in os.listdir('Comparison\\Actors 2'):
+        if filename != '.gitkeep':
+            onestats2 = openPack('Comparison\\Actors 2\\'+filename)
+            finalList2[onestats2['Actor Name']] = onestats2
+    for diff in list(dictdiffer.diff(finalList1,finalList2)):
+        if diff[0] == 'add':
+            for i in range(len(diff[2])):
+                finalList[diff[2][i][0]] = f'found {diff[2][i][0]} in second folder and not in the first one'
+        elif diff[0] == 'remove':
+            for i in range(len(diff[2])):
+                finalList[diff[2][i][0]] = f'found {diff[2][i][0]} in first folder and not in the second one'
+        elif diff[0] == 'change':
+            nameOfThing = diff[1].replace('.','/')
+            finalList[nameOfThing] = f'found difference in {nameOfThing}. Value is {diff[2][0]} in first folder, and {diff[2][1]} in second folder.'
+    with open('statsComparison.json','w') as f:
+        f.write(json.dumps(finalList, indent = 4))
+
 def main():
-    basicStats()
+    if input('Do you want to make analysis of one Actor/Pack folder ? y for yes, anything else, else : ') == 'y':
+        basicStats()
+    if input('Do you want to compare two folders ? y for yes, anything else, else : ') =='y':
+        comparison()
 
 if __name__ == "__main__":
     main()
